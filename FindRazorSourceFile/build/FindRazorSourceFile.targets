@@ -203,7 +203,7 @@ this.EndpointItems = endpointItems.ToArray();
       <StaticWebAsset Include="@(_FRSF_FingerprintedConfigFile)">
         <SourceType>$(_RazorSourceMapFilesStaticWebAssetsSourceType)</SourceType>
         <SourceId>$(PackageId)</SourceId>
-        <ContentRoot>%(RelativeDir)</ContentRoot>
+        <ContentRoot>$([System.IO.Path]::GetFullPath('%(RootDir)%(Directory)'))</ContentRoot>
         <BasePath>$(StaticWebAssetBasePath)</BasePath>
         <RelativePath>%(FileName)%(Extension)</RelativePath>
         <CopyToPublishDirectory>Never</CopyToPublishDirectory>

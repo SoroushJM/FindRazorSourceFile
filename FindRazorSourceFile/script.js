@@ -108,7 +108,10 @@ const init = async () => {
         const [uiRoot] = createElement(FINDRAZORSOURCEFILE_UI_TAG);
         doc.body.appendChild(uiRoot);
     };
-    Blazor.addEventListener("enhancedload", ensureFindRazorSourceFileUI);
+   typeof Blazor != "undefined" &&
+     typeof Blazor.addEventListener == "function" &&
+     Blazor.addEventListener("enhancedload", e);
+
     ensureFindRazorSourceFileUI();
     addEventListener(doc, { keydown: onKeyDown });
     addEventListener(window, {
