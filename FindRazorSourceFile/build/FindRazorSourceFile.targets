@@ -15,8 +15,7 @@
             $(IntermediateOutputPath)</_FRSF_IntermediateDir>
         <_FRSF_IntermediateDir Condition=" '$(_FRSF_IntermediateDir)' == '' ">
             $(ProjectDir)$(IntermediateOutputPath)</_FRSF_IntermediateDir>
-        <_RazorSourceMapFilesDir Condition=" '$(_RazorSourceMapFilesDir)' == '' ">
-            $(_FRSF_IntermediateDir)RazorSourceMapFiles\</_RazorSourceMapFilesDir>
+        <_RazorSourceMapFilesDir>$([MSBuild]::GetDirectoryNameOfFileAbove('$(MSBuildThisFileDirectory)', 'HybridMauiApp.slnx'))\HybridMauiApp\wwwroot\RazorSourceMapFiles\</_RazorSourceMapFilesDir>
         <_IsThisRazorClassLib
             Condition=" '$(UsingMicrosoftNETSdkWeb)' != 'true' AND '$(UsingMicrosoftNETSdkBlazorWebAssembly)' != 'true' ">
             true</_IsThisRazorClassLib>
@@ -177,7 +176,7 @@
     <Target
         Name="_GenerateFindRazorSourceConfigFile"
         BeforeTargets="GenerateStaticWebAssetsManifest"
-        Condition=" '$(EnableFindRazorSourceFile)' == 'true' ">
+        Condition=" '$(EnableFindRazorSourceFile)' == 'true' AND '@(FindRazorSourceFileConfig)' != '' ">
         <PropertyGroup>
             <_FRSF_ConfigPath Condition=" '$(_FRSF_ConfigPath)' == '' ">
                 $(_FRSF_IntermediateDir)FindRazorSourceFileConfig.json</_FRSF_ConfigPath>
@@ -307,48 +306,11 @@
         </ItemGroup>
 
 
-        <!--
-        INCLUDE ALL THE RAZOR SOURCE MAP FILES IN THE STATIC WEB ASSET AND ITS ENDPOINTS.
-        -->
-        <ItemGroup>
-            <_RazorSourceMapFiles Include="$(_RazorSourceMapFilesDir)*.txt" />
-        </ItemGroup>
-
-        <_FRSF_ComputeFingerprint Items="@(_RazorSourceMapFiles)">
-            <Output TaskParameter="FingerprintedItems" ItemName="_FingerprintedRazorSourceMapFiles" />
-            <Output TaskParameter="EndpointItems" ItemName="_RazorSourceMapFileEndpoints" />
-        </_FRSF_ComputeFingerprint>
-
-        <ItemGroup>
-            <StaticWebAsset Include="@(_FingerprintedRazorSourceMapFiles)">
-                <Fingerprint>frsf</Fingerprint>
-                <Integrity>frsf</Integrity>
-                <SourceType>$(_RazorSourceMapFilesStaticWebAssetsSourceType)</SourceType>
-                <SourceId>$(PackageId)</SourceId>
-                <ContentRoot>$(_RazorSourceMapFilesDir)</ContentRoot>
-                <BasePath>/</BasePath>
-                <RelativePath>
-                    _content/FindRazorSourceFile/RazorSourceMapFiles/%(FileName)%(Extension)</RelativePath>
-                <CopyToPublishDirectory>Never</CopyToPublishDirectory>
-                <OriginalItemSpec>%(FullPath)</OriginalItemSpec>
-                <AssetKind>All</AssetKind>
-                <AssetMode>All</AssetMode>
-                <AssetRole>Primary</AssetRole>
-                <AssetTraitName>RazorSourceMapFiles</AssetTraitName>
-            </StaticWebAsset>
-
-            <StaticWebAssetEndpoint Include="@(_RazorSourceMapFileEndpoints)" />
-            <_RazorSourceMapFileEndpoints Remove="@(_RazorSourceMapFileEndpoints)" />
-
-        </ItemGroup>
-
     </Target>
 
-    <Target Name="_CleanRazorSourceMapFiles" AfterTargets="Clean"
-        DependsOnTargets="_DefineFindRazorSourceFileProperties">
-        <RemoveDir Directories="$(_RazorSourceMapFilesDir)"
-            Condition="Exists('$(_RazorSourceMapFilesDir)')" />
-    </Target>
+<Target Name="_CleanRazorSourceMapFiles" AfterTargets="Clean" DependsOnTargets="_DefineFindRazorSourceFileProperties">
+    <RemoveDir Directories="$(_RazorSourceMapFilesDir)" Condition="Exists('$(_RazorSourceMapFilesDir)')" />
+  </Target>
     <Target Name="_RemoveRazorSourceMapFilesFromPackage">
         <ItemGroup>
             <StaticWebAsset Remove="@(StaticWebAsset)"
@@ -357,3 +319,4 @@
     </Target>
 
 </Project>
+
