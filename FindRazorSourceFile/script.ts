@@ -55,7 +55,7 @@ type CreateElementResult = [HTMLElement, HTMLElementMap];
 
 declare global {
   interface Node {
-    [key: symbol]: Node | Node[] | undefined;
+    [key: symbol]: any;
   }
 }
 

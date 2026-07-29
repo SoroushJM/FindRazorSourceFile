@@ -1,328 +1,359 @@
 <Project>
 
-  <!--
-  DEFINE THE "ENABLE_FIND_RAZOR_SOURCE_FILE" CONSTANT WHEN THE FEATURE IS ENABLED.
-  The source generator (FindRazorSourceFile.Generator) injects FindRazorSourceFileMarker.g.cs,
-  which uses this constant via #if ENABLE_FIND_RAZOR_SOURCE_FILE.
-  -->
-  <PropertyGroup Condition="'$(EnableFindRazorSourceFile)' == 'true'">
-    <DefineConstants>$(DefineConstants);ENABLE_FIND_RAZOR_SOURCE_FILE</DefineConstants>
-  </PropertyGroup>
-
-  <PropertyGroup>
-    <_FRSF_IntermediateDir Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($(IntermediateOutputPath), '^(([a-zA-Z]:)|/|\\)'))">$(IntermediateOutputPath)</_FRSF_IntermediateDir>
-    <_FRSF_IntermediateDir Condition=" '$(_FRSF_IntermediateDir)' == '' ">$(ProjectDir)$(IntermediateOutputPath)</_FRSF_IntermediateDir>
-    <_RazorSourceMapFilesDir Condition=" '$(_RazorSourceMapFilesDir)' == '' ">$(_FRSF_IntermediateDir)RazorSourceMapFiles\</_RazorSourceMapFilesDir>
-    <_IsThisRazorClassLib Condition=" '$(UsingMicrosoftNETSdkWeb)' != 'true' AND '$(UsingMicrosoftNETSdkBlazorWebAssembly)' != 'true' ">true</_IsThisRazorClassLib>
-    <_RazorSourceMapFilesStaticWebAssetsSourceType>Computed</_RazorSourceMapFilesStaticWebAssetsSourceType>
-    <GenerateStaticWebAssetsPackTargetsDependsOn>_RemoveRazorSourceMapFilesFromPackage;$(GenerateStaticWebAssetsPackTargetsDependsOn);</GenerateStaticWebAssetsPackTargetsDependsOn>
-  </PropertyGroup>
-
-  <Target Name="_DefineFindRazorSourceFileProperties">
-    <PropertyGroup>
-      <_VersionOfApplyCssScopesTask Condition=" '$(_RazorSdkTasksTFM)' == 'net46' ">1</_VersionOfApplyCssScopesTask>
-      <_VersionOfApplyCssScopesTask Condition=" '$(_VersionOfApplyCssScopesTask)' == '' ">2</_VersionOfApplyCssScopesTask>
+    <!--
+    DEFINE THE "ENABLE_FIND_RAZOR_SOURCE_FILE" CONSTANT WHEN THE FEATURE IS ENABLED.
+    The source generator (FindRazorSourceFile.Generator) injects FindRazorSourceFileMarker.g.cs,
+    which uses this constant via #if ENABLE_FIND_RAZOR_SOURCE_FILE.
+    -->
+    <PropertyGroup Condition="'$(EnableFindRazorSourceFile)' == 'true'">
+        <DefineConstants>$(DefineConstants);ENABLE_FIND_RAZOR_SOURCE_FILE</DefineConstants>
     </PropertyGroup>
-  </Target>
 
-  <UsingTask TaskName="_FRSF_ComputePathHash" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
-    <ParameterGroup>
-      <!-- Input parameteres -->
-      <RazorComponents ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
-      <!-- Output parameters -->
-      <RazorComponentsWithPathHash ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
-    </ParameterGroup>
-    <Task>
-      <Using Namespace="System" />
-      <Using Namespace="System.Text" />
-      <Using Namespace="System.IO" />
-      <Using Namespace="System.Linq" />
-      <Using Namespace="System.Numerics" />
-      <Using Namespace="System.Security.Cryptography" />
-      <Using Namespace="Microsoft.Build.Framework" />
-      <Code Type="Fragment" Language="cs">
-        <![CDATA[
-
-static byte[] ComputePathHash(ITaskItem item) {
-    using var sha256 = SHA256.Create();
-    return sha256.ComputeHash(Encoding.UTF8.GetBytes(item.GetMetadata("FullPath")));
-}
-
-static string ToBase36(byte[] hash)
-{
-    var array = new char[10];
-    var buff = new byte[10];
-    Array.Copy(hash, buff, 10);
-    var dividend = BigInteger.Abs(new BigInteger(buff));
-    for (var i = 0; i < 10; i++)
-    {
-        dividend = BigInteger.DivRem(dividend, 36, out var remainder);
-        array[i] = "0123456789abcdefghijklmnopqrstuvwxyz"[(int)remainder];
-    }
-    return new string(array);
-}
-
-var razorComponentsWithPathHash = new List<ITaskItem>();
-foreach (var razorComponent in this.RazorComponents)
-{
-    var razorComponentWithPathHash = new TaskItem(razorComponent.ItemSpec);
-    razorComponentWithPathHash.SetMetadata("PathHash", "frsf-" + ToBase36(ComputePathHash(razorComponentWithPathHash)));
-    razorComponentsWithPathHash.Add(razorComponentWithPathHash);
-}
-this.RazorComponentsWithPathHash = razorComponentsWithPathHash.ToArray();
-
-        ]]>
-      </Code>
-    </Task>
-  </UsingTask>
-
-  <UsingTask TaskName="_FRSF_ComputeFingerprint" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
-    <ParameterGroup>
-      <!-- Input parameteres -->
-      <Items ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
-      <!-- Output parameters -->
-      <FingerprintedItems ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
-      <EndpointItems ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
-    </ParameterGroup>
-    <Task>
-      <Using Namespace="System" />
-      <Using Namespace="System.IO" />
-      <Using Namespace="System.Linq" />
-      <Using Namespace="System.Numerics" />
-      <Using Namespace="System.Security.Cryptography" />
-      <Using Namespace="Microsoft.Build.Framework" />
-      <Code Type="Fragment" Language="cs">
-        <![CDATA[
-
-static byte[] ComputeHash(ITaskItem item) {
-    var contentBytes = File.ReadAllBytes(item.ItemSpec);
-    using var sha256 = SHA256.Create();
-    return sha256.ComputeHash(contentBytes);
-}
-
-static string ToBase36(byte[] hash)
-{
-    var array = new char[10];
-    var buff = new byte[10];
-    Array.Copy(hash, buff, 10);
-    var dividend = BigInteger.Abs(new BigInteger(buff));
-    for (var i = 0; i < 10; i++)
-    {
-        dividend = BigInteger.DivRem(dividend, 36, out var remainder);
-        array[i] = "0123456789abcdefghijklmnopqrstuvwxyz"[(int)remainder];
-    }
-    return new string(array);
-}
-
-var fingerprintedItems = new List<ITaskItem>();
-var endpointItems = new List<ITaskItem>();
-foreach (var item in this.Items)
-{
-    var fingerprintedItem = new TaskItem(item.ItemSpec);
-    
-    var hash = default(byte[]);
-    var integrity = fingerprintedItem.GetMetadata("Integrity");
-    var fingerprint = fingerprintedItem.GetMetadata("Fingerprint");
-    if (string.IsNullOrEmpty(integrity) || string.IsNullOrEmpty(fingerprint)) hash = ComputeHash(item);
-    if (string.IsNullOrEmpty(integrity)) integrity = Convert.ToBase64String(hash);
-    if (string.IsNullOrEmpty(fingerprint)) fingerprint = ToBase36(hash);
-
-    fingerprintedItem.SetMetadata("Integrity", integrity);
-    fingerprintedItem.SetMetadata("Fingerprint", fingerprint);
-
-    var fileInfo = new System.IO.FileInfo(item.ItemSpec);
-    var fileLength = item.GetMetadata("FileLength");
-    var lastWriteTime = item.GetMetadata("LastWriteTime");
-    if (string.IsNullOrEmpty(fileLength)) fileLength = fileInfo.Length.ToString();
-    if (string.IsNullOrEmpty(lastWriteTime)) lastWriteTime = fileInfo.LastWriteTimeUtc.ToString("R"); // ex."Tue, 20 May 2025 23:21:08 GMT"
-
-    fingerprintedItem.SetMetadata("FileLength", fileLength);
-    fingerprintedItem.SetMetadata("LastWriteTime", lastWriteTime);
-
-    fingerprintedItems.Add(fingerprintedItem);
-
-
-    var resHeaderFormat = "[{{\"Name\":\"Accept-Ranges\",\"Value\":\"bytes\"}},{{\"Name\":\"Cache-Control\",\"Value\":\"{0}\"}},{{\"Name\":\"Content-Length\",\"Value\":\"{1}\"}},{{\"Name\":\"Content-Type\",\"Value\":\"text/css\"}},{{\"Name\":\"ETag\",\"Value\":\"\\u0022{2}\\u0022\"}},{{\"Name\":\"Last-Modified\",\"Value\":\"{3:R}\"}}]";
-    var encodedIntegrity = integrity.Replace("+", "\\u002B").Replace("/", "\\u002F");
-
-    var endpoint = new TaskItem(item.ItemSpec);
-    endpoint.SetMetadata("AssetFile", item.ItemSpec);
-    endpoint.SetMetadata("Selectors", "[]");
-    endpoint.SetMetadata("ResponseHeaders", string.Format(resHeaderFormat, "no-cache", fileInfo.Length, integrity, fileInfo.LastWriteTimeUtc));
-    endpoint.SetMetadata("EndpointProperties", string.Format("[{{\"Name\":\"integrity\",\"Value\":\"sha256-{0}\"}}]", encodedIntegrity));
-    endpointItems.Add(endpoint);
-}
-    
-this.FingerprintedItems = fingerprintedItems.ToArray();
-this.EndpointItems = endpointItems.ToArray();
-
-        ]]>
-      </Code>
-    </Task>
-  </UsingTask>
-
-  <!--
-  GENERATE THE CONFIGURATION FILE FOR FIND RAZOR SOURCE FILE FEATURE.
-  -->
-  <Target
-    Name="_GenerateFindRazorSourceConfigFile"
-    BeforeTargets="GenerateStaticWebAssetsManifest"
-    Condition=" '$(EnableFindRazorSourceFile)' == 'true' ">
     <PropertyGroup>
-      <_FRSF_ConfigPath Condition=" '$(_FRSF_ConfigPath)' == '' ">$(_FRSF_IntermediateDir)FindRazorSourceFileConfig.json</_FRSF_ConfigPath>
+        <_FRSF_IntermediateDir
+            Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($(IntermediateOutputPath), '^(([a-zA-Z]:)|/|\\)'))">
+            $(IntermediateOutputPath)</_FRSF_IntermediateDir>
+        <_FRSF_IntermediateDir Condition=" '$(_FRSF_IntermediateDir)' == '' ">
+            $(ProjectDir)$(IntermediateOutputPath)</_FRSF_IntermediateDir>
+        <_RazorSourceMapFilesDir Condition=" '$(_RazorSourceMapFilesDir)' == '' ">
+            $(_FRSF_IntermediateDir)RazorSourceMapFiles\</_RazorSourceMapFilesDir>
+        <_IsThisRazorClassLib
+            Condition=" '$(UsingMicrosoftNETSdkWeb)' != 'true' AND '$(UsingMicrosoftNETSdkBlazorWebAssembly)' != 'true' ">
+            true</_IsThisRazorClassLib>
+        <_RazorSourceMapFilesStaticWebAssetsSourceType>Computed</_RazorSourceMapFilesStaticWebAssetsSourceType>
+        <GenerateStaticWebAssetsPackTargetsDependsOn>
+            _RemoveRazorSourceMapFilesFromPackage;$(GenerateStaticWebAssetsPackTargetsDependsOn);</GenerateStaticWebAssetsPackTargetsDependsOn>
     </PropertyGroup>
-    <ItemGroup>
-      <_FRSF_ConfigLine Include="[" />
-      <_FRSF_ConfigLine Include="%20 {&quot;key&quot;: &quot;%(FindRazorSourceFileConfig.Identity)&quot;, &quot;value&quot;: &quot;%(FindRazorSourceFileConfig.Value)&quot;}," />
-      <_FRSF_ConfigLine Include="%20 {&quot;key&quot;: &quot;revision&quot;, &quot;value&quot;: &quot;1&quot;}" />
-      <_FRSF_ConfigLine Include="]" />
-    </ItemGroup>
-    <WriteLinesToFile File="$(_FRSF_ConfigPath)" Lines="@(_FRSF_ConfigLine)" Overwrite="true" WriteOnlyWhenDifferent="true" />
 
-    <ItemGroup>
-      <_FRSF_ConfigFile Include="$(_FRSF_ConfigPath)" />
-    </ItemGroup>
-    <_FRSF_ComputeFingerprint Items="@(_FRSF_ConfigFile)">
-      <Output TaskParameter="FingerprintedItems" ItemName="_FRSF_FingerprintedConfigFile" />
-      <Output TaskParameter="EndpointItems" ItemName="_FRSF_ConfigFileEndpoints" />
-    </_FRSF_ComputeFingerprint>
+    <Target Name="_DefineFindRazorSourceFileProperties">
+        <PropertyGroup>
+            <_VersionOfApplyCssScopesTask Condition=" '$(_RazorSdkTasksTFM)' == 'net46' ">1</_VersionOfApplyCssScopesTask>
+            <_VersionOfApplyCssScopesTask Condition=" '$(_VersionOfApplyCssScopesTask)' == '' ">2</_VersionOfApplyCssScopesTask>
+        </PropertyGroup>
+    </Target>
 
-    <ItemGroup>
-      <!--
-      BEFORE ADDING THE CONFIG FILE TO STATIC WEB ASSET, REMOVE THE OLD ONE FIRST IN CASE THE CONFIG FILE NAME IS THE SAME.
-      -->
-      <_FRSF_StaticWebAssetToRemove Include="@(StaticWebAsset)" Condition=" %(StaticWebAsset.AssetTraitName) == 'FindRazorSourceFileConfig' " />
-      <StaticWebAsset Remove="@(_FRSF_StaticWebAssetToRemove)" />
-      <StaticWebAssetEndpoint Remove="@(_FRSF_StaticWebAssetToRemove->Replace('\', '/'))" />
-      <StaticWebAssetEndpoint Remove="@(_FRSF_StaticWebAssetToRemove->TrimStart('/'))" />
-      <_FRSF_StaticWebAssetToRemove Remove="@(_FRSF_StaticWebAssetToRemove)" />
+    <UsingTask TaskName="_FRSF_ComputePathHash" TaskFactory="RoslynCodeTaskFactory"
+        AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+        <ParameterGroup>
+            <!-- Input parameteres -->
+            <RazorComponents ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+            <!-- Output parameters -->
+            <RazorComponentsWithPathHash ParameterType="Microsoft.Build.Framework.ITaskItem[]"
+                Output="true" />
+        </ParameterGroup>
+        <Task>
+            <Using Namespace="System" />
+            <Using Namespace="System.Text" />
+            <Using Namespace="System.IO" />
+            <Using Namespace="System.Linq" />
+            <Using Namespace="System.Numerics" />
+            <Using Namespace="System.Security.Cryptography" />
+            <Using Namespace="Microsoft.Build.Framework" />
+            <Code Type="Fragment" Language="cs">
+            <![CDATA[
 
-      <!--
-      INCLUDE THE CONFIG FILE IN THE STATIC WEB ASSET WITH FINGERPRINT AND ITS ENDPOINT.
-      -->
-      <StaticWebAsset Include="@(_FRSF_FingerprintedConfigFile)">
-        <SourceType>$(_RazorSourceMapFilesStaticWebAssetsSourceType)</SourceType>
-        <SourceId>$(PackageId)</SourceId>
-        <ContentRoot>$([System.IO.Path]::GetFullPath('%(RootDir)%(Directory)'))</ContentRoot>
-        <BasePath>$(StaticWebAssetBasePath)</BasePath>
-        <RelativePath>%(FileName)%(Extension)</RelativePath>
-        <CopyToPublishDirectory>Never</CopyToPublishDirectory>
-        <OriginalItemSpec>%(FullPath)</OriginalItemSpec>
-        <AssetKind>All</AssetKind>
-        <AssetMode>All</AssetMode>
-        <AssetRole>Primary</AssetRole>
-        <AssetTraitName>FindRazorSourceFileConfig</AssetTraitName>
-      </StaticWebAsset>
+    static byte[] ComputePathHash(ITaskItem item) {
+        using var sha256 = SHA256.Create();
+        return sha256.ComputeHash(Encoding.UTF8.GetBytes(item.GetMetadata("FullPath")));
+    }
 
-      <StaticWebAssetEndpoint Include="@(_FRSF_ConfigFileEndpoints)" />
+    static string ToBase36(byte[] hash)
+    {
+        var array = new char[10];
+        var buff = new byte[10];
+        Array.Copy(hash, buff, 10);
+        var dividend = BigInteger.Abs(new BigInteger(buff));
+        for (var i = 0; i < 10; i++)
+        {
+            dividend = BigInteger.DivRem(dividend, 36, out var remainder);
+            array[i] = "0123456789abcdefghijklmnopqrstuvwxyz"[(int)remainder];
+        }
+        return new string(array);
+    }
 
-      <_FRSF_FingerprintedConfigFile Remove="@(_FRSF_FingerprintedConfigFile)" />
-      <_FRSF_ConfigFileEndpoints Remove="@(_FRSF_ConfigFileEndpoints)" />
-    </ItemGroup>
-  </Target>
+    var razorComponentsWithPathHash = new List<ITaskItem>();
+    foreach (var razorComponent in this.RazorComponents)
+    {
+        var razorComponentWithPathHash = new TaskItem(razorComponent.ItemSpec);
+        razorComponentWithPathHash.SetMetadata("PathHash", "frsf-" + ToBase36(ComputePathHash(razorComponentWithPathHash)));
+        razorComponentsWithPathHash.Add(razorComponentWithPathHash);
+    }
+    this.RazorComponentsWithPathHash = razorComponentsWithPathHash.ToArray();
 
-  <!--
-  GENERATE THE RAZOR SOURCE MAP FILES, BASED ON THE CSS SCOPE IDS AND THE FULL PATH OF RAZOR COMPONENTS.
-  -->
-  <Target Name="_GenerateRazorSourceMapFiles"
-    BeforeTargets="AssignRazorComponentTargetPaths;AssignRazorGenerateTargetPaths"
-    DependsOnTargets="ResolveScopedCssOutputs;_DefineFindRazorSourceFileProperties"
-    Condition=" '$(EnableFindRazorSourceFile)' == 'true' ">
+            ]]>
+        </Code>
+        </Task>
+    </UsingTask>
 
-    <ItemGroup>
-      <_Razor_without_Scope Include="%(RazorComponent.Identity)" Condition=" '%(RazorComponent.CssScope)' == '' " />
-      <_Fictional_RazorCss Include="%(_Razor_without_Scope.Identity).css" Condition=" '%(_Razor_without_Scope.Identity)' != '' " />
-    </ItemGroup>
+    <UsingTask TaskName="_FRSF_ComputeFingerprint" TaskFactory="RoslynCodeTaskFactory"
+        AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+        <ParameterGroup>
+            <!-- Input parameteres -->
+            <Items ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+            <!-- Output parameters -->
+            <FingerprintedItems ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+            <EndpointItems ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+        </ParameterGroup>
+        <Task>
+            <Using Namespace="System" />
+            <Using Namespace="System.IO" />
+            <Using Namespace="System.Linq" />
+            <Using Namespace="System.Numerics" />
+            <Using Namespace="System.Security.Cryptography" />
+            <Using Namespace="Microsoft.Build.Framework" />
+            <Code Type="Fragment" Language="cs">
+            <![CDATA[
 
-    <ComputeCssScope ScopedCssInput="@(_Fictional_RazorCss)" Targetname="$(TargetName)">
-      <Output TaskParameter="ScopedCss" ItemName="_Fictional_RazorCss_with_Scope" />
-    </ComputeCssScope>
+    static byte[] ComputeHash(ITaskItem item) {
+        var contentBytes = File.ReadAllBytes(item.ItemSpec);
+        using var sha256 = SHA256.Create();
+        return sha256.ComputeHash(contentBytes);
+    }
 
-    <ApplyCssScopes RazorComponents="@(_Razor_without_Scope)" ScopedCss="@(_Fictional_RazorCss_with_Scope)"
-      Condition=" '$(_VersionOfApplyCssScopesTask)' == '1' ">
-      <Output TaskParameter="RazorComponentsWithScopes" ItemName="_Razor_with_Scope" />
-      <!--<Output TaskParameter="RazorGenerateWithScopes" ItemName="_RazorGenerateWithScopes" />-->
-    </ApplyCssScopes>
-    <ApplyCssScopes RazorComponents="@(_Razor_without_Scope)" ScopedCss="@(_Fictional_RazorCss_with_Scope)"
-      RazorGenerate=""
-      Condition=" '$(_VersionOfApplyCssScopesTask)' != '1' ">
-      <Output TaskParameter="RazorComponentsWithScopes" ItemName="_Razor_with_Scope" />
-      <!--<Output TaskParameter="RazorGenerateWithScopes" ItemName="_RazorGenerateWithScopes" />-->
-    </ApplyCssScopes>
+    static string ToBase36(byte[] hash)
+    {
+        var array = new char[10];
+        var buff = new byte[10];
+        Array.Copy(hash, buff, 10);
+        var dividend = BigInteger.Abs(new BigInteger(buff));
+        for (var i = 0; i < 10; i++)
+        {
+            dividend = BigInteger.DivRem(dividend, 36, out var remainder);
+            array[i] = "0123456789abcdefghijklmnopqrstuvwxyz"[(int)remainder];
+        }
+        return new string(array);
+    }
 
-    <ItemGroup>
-      <RazorComponent Remove="@(_Razor_with_Scope)" />
-      <RazorComponent Include="@(_Razor_with_Scope)" />
-    </ItemGroup>
+    var fingerprintedItems = new List<ITaskItem>();
+    var endpointItems = new List<ITaskItem>();
+    foreach (var item in this.Items)
+    {
+        var fingerprintedItem = new TaskItem(item.ItemSpec);
+        
+        var hash = default(byte[]);
+        var integrity = fingerprintedItem.GetMetadata("Integrity");
+        var fingerprint = fingerprintedItem.GetMetadata("Fingerprint");
+        if (string.IsNullOrEmpty(integrity) || string.IsNullOrEmpty(fingerprint)) hash = ComputeHash(item);
+        if (string.IsNullOrEmpty(integrity)) integrity = Convert.ToBase64String(hash);
+        if (string.IsNullOrEmpty(fingerprint)) fingerprint = ToBase36(hash);
+
+        fingerprintedItem.SetMetadata("Integrity", integrity);
+        fingerprintedItem.SetMetadata("Fingerprint", fingerprint);
+
+        var fileInfo = new System.IO.FileInfo(item.ItemSpec);
+        var fileLength = item.GetMetadata("FileLength");
+        var lastWriteTime = item.GetMetadata("LastWriteTime");
+        if (string.IsNullOrEmpty(fileLength)) fileLength = fileInfo.Length.ToString();
+        if (string.IsNullOrEmpty(lastWriteTime)) lastWriteTime = fileInfo.LastWriteTimeUtc.ToString("R"); // ex."Tue, 20 May 2025 23:21:08 GMT"
+
+        fingerprintedItem.SetMetadata("FileLength", fileLength);
+        fingerprintedItem.SetMetadata("LastWriteTime", lastWriteTime);
+
+        fingerprintedItems.Add(fingerprintedItem);
+
+
+        var resHeaderFormat = "[{{\"Name\":\"Accept-Ranges\",\"Value\":\"bytes\"}},{{\"Name\":\"Cache-Control\",\"Value\":\"{0}\"}},{{\"Name\":\"Content-Length\",\"Value\":\"{1}\"}},{{\"Name\":\"Content-Type\",\"Value\":\"text/css\"}},{{\"Name\":\"ETag\",\"Value\":\"\\u0022{2}\\u0022\"}},{{\"Name\":\"Last-Modified\",\"Value\":\"{3:R}\"}}]";
+        var encodedIntegrity = integrity.Replace("+", "\\u002B").Replace("/", "\\u002F");
+
+        var endpoint = new TaskItem(item.ItemSpec);
+        endpoint.SetMetadata("AssetFile", item.ItemSpec);
+        endpoint.SetMetadata("Selectors", "[]");
+        endpoint.SetMetadata("ResponseHeaders", string.Format(resHeaderFormat, "no-cache", fileInfo.Length, integrity, fileInfo.LastWriteTimeUtc));
+        endpoint.SetMetadata("EndpointProperties", string.Format("[{{\"Name\":\"integrity\",\"Value\":\"sha256-{0}\"}}]", encodedIntegrity));
+        endpointItems.Add(endpoint);
+    }
+        
+    this.FingerprintedItems = fingerprintedItems.ToArray();
+    this.EndpointItems = endpointItems.ToArray();
+
+            ]]>
+        </Code>
+        </Task>
+    </UsingTask>
 
     <!--
-    GENERATE THE RAZOR SOURCE MAP FILES BASED ON THE CSS SCOPE IDS. (THEY ARE .txt FILES START WITH "b-...")
+    GENERATE THE CONFIGURATION FILE FOR FIND RAZOR SOURCE FILE FEATURE.
     -->
-    <MakeDir Directories="$(_RazorSourceMapFilesDir)" />
-    <WriteLinesToFile WriteOnlyWhenDifferent="true" Overwrite="true"
-      File="$(_RazorSourceMapFilesDir)%(RazorComponent.CssScope).txt"
-      Lines="$(ProjectName)|%(RazorComponent.Identity)|%(RazorComponent.FullPath)"
-      Condition=" '%(RazorComponent.CssScope)' != '' " />
+    <Target
+        Name="_GenerateFindRazorSourceConfigFile"
+        BeforeTargets="GenerateStaticWebAssetsManifest"
+        Condition=" '$(EnableFindRazorSourceFile)' == 'true' ">
+        <PropertyGroup>
+            <_FRSF_ConfigPath Condition=" '$(_FRSF_ConfigPath)' == '' ">
+                $(_FRSF_IntermediateDir)FindRazorSourceFileConfig.json</_FRSF_ConfigPath>
+        </PropertyGroup>
+        <ItemGroup>
+            <_FRSF_ConfigLine Include="[" />
+            <_FRSF_ConfigLine
+                Include="%20 {&quot;key&quot;: &quot;%(FindRazorSourceFileConfig.Identity)&quot;, &quot;value&quot;: &quot;%(FindRazorSourceFileConfig.Value)&quot;}," />
+            <_FRSF_ConfigLine
+                Include="%20 {&quot;key&quot;: &quot;revision&quot;, &quot;value&quot;: &quot;1&quot;}" />
+            <_FRSF_ConfigLine Include="]" />
+        </ItemGroup>
+        <WriteLinesToFile File="$(_FRSF_ConfigPath)" Lines="@(_FRSF_ConfigLine)" Overwrite="true"
+            WriteOnlyWhenDifferent="true" />
+
+        <ItemGroup>
+            <_FRSF_ConfigFile Include="$(_FRSF_ConfigPath)" />
+        </ItemGroup>
+        <_FRSF_ComputeFingerprint Items="@(_FRSF_ConfigFile)">
+            <Output TaskParameter="FingerprintedItems" ItemName="_FRSF_FingerprintedConfigFile" />
+            <Output TaskParameter="EndpointItems" ItemName="_FRSF_ConfigFileEndpoints" />
+        </_FRSF_ComputeFingerprint>
+
+        <ItemGroup>
+            <!--
+        BEFORE ADDING THE CONFIG FILE TO STATIC WEB ASSET, REMOVE THE OLD ONE FIRST IN CASE THE CONFIG FILE
+            NAME IS THE SAME.
+        -->
+            <_FRSF_StaticWebAssetToRemove Include="@(StaticWebAsset)"
+                Condition=" %(StaticWebAsset.AssetTraitName) == 'FindRazorSourceFileConfig' " />
+            <StaticWebAsset Remove="@(_FRSF_StaticWebAssetToRemove)" />
+            <StaticWebAssetEndpoint Remove="@(_FRSF_StaticWebAssetToRemove->Replace('\', '/'))" />
+            <StaticWebAssetEndpoint Remove="@(_FRSF_StaticWebAssetToRemove->TrimStart('/'))" />
+            <_FRSF_StaticWebAssetToRemove Remove="@(_FRSF_StaticWebAssetToRemove)" />
+
+            <!--
+        INCLUDE THE CONFIG FILE IN THE STATIC WEB ASSET WITH FINGERPRINT AND ITS ENDPOINT.
+        -->
+            <StaticWebAsset Include="@(_FRSF_FingerprintedConfigFile)">
+                <Fingerprint>frsf</Fingerprint>
+                <Integrity>frsf</Integrity>
+                <SourceType>$(_RazorSourceMapFilesStaticWebAssetsSourceType)</SourceType>
+                <SourceId>$(PackageId)</SourceId>
+                <ContentRoot>$([System.IO.Path]::GetFullPath('%(RootDir)%(Directory)'))</ContentRoot>
+                <BasePath>$(StaticWebAssetBasePath)</BasePath>
+                <RelativePath>%(FileName)%(Extension)</RelativePath>
+                <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+                <OriginalItemSpec>%(FullPath)</OriginalItemSpec>
+                <AssetKind>All</AssetKind>
+                <AssetMode>All</AssetMode>
+                <AssetRole>Primary</AssetRole>
+                <AssetTraitName>FindRazorSourceFileConfig</AssetTraitName>
+            </StaticWebAsset>
+
+            <StaticWebAssetEndpoint Include="@(_FRSF_ConfigFileEndpoints)" />
+
+            <_FRSF_FingerprintedConfigFile Remove="@(_FRSF_FingerprintedConfigFile)" />
+            <_FRSF_ConfigFileEndpoints Remove="@(_FRSF_ConfigFileEndpoints)" />
+        </ItemGroup>
+    </Target>
 
     <!--
-    GENERATE THE OTHER RAZOR SOURCE MAP FILES BASED ON THE FULL PATH OF RAZOR COMPONENTS. (THEY ARE .txt FILES STARTS WITH "frsf-...")
+    GENERATE THE RAZOR SOURCE MAP FILES, BASED ON THE CSS SCOPE IDS AND THE FULL PATH OF RAZOR
+    COMPONENTS.
     -->
-    <_FRSF_ComputePathHash RazorComponents="@(RazorComponent)">
-      <Output TaskParameter="RazorComponentsWithPathHash" ItemName="_FRSF_RazorComponentWithPathHash" />
-    </_FRSF_ComputePathHash>
+    <Target Name="_GenerateRazorSourceMapFiles"
+        BeforeTargets="AssignRazorComponentTargetPaths;AssignRazorGenerateTargetPaths"
+        DependsOnTargets="ResolveScopedCssOutputs;_DefineFindRazorSourceFileProperties"
+        Condition=" '$(EnableFindRazorSourceFile)' == 'true' ">
 
-    <WriteLinesToFile WriteOnlyWhenDifferent="true"
-      Overwrite="true"
-      File="$(_RazorSourceMapFilesDir)%(_FRSF_RazorComponentWithPathHash.PathHash).txt"
-      Lines="$(ProjectName)|%(_FRSF_RazorComponentWithPathHash.Identity)|%(_FRSF_RazorComponentWithPathHash.FullPath)"
-      Condition=" '%(_FRSF_RazorComponentWithPathHash.PathHash)' != '' " />
-    <ItemGroup>
-      <_FRSF_RazorComponentWithPathHash Remove="@(_FRSF_RazorComponentWithPathHash)" />
-    </ItemGroup>
+        <ItemGroup>
+            <_Razor_without_Scope Include="%(RazorComponent.Identity)"
+                Condition=" '%(RazorComponent.CssScope)' == '' " />
+            <_Fictional_RazorCss Include="%(_Razor_without_Scope.Identity).css"
+                Condition=" '%(_Razor_without_Scope.Identity)' != '' " />
+        </ItemGroup>
+
+        <ComputeCssScope ScopedCssInput="@(_Fictional_RazorCss)" Targetname="$(TargetName)">
+            <Output TaskParameter="ScopedCss" ItemName="_Fictional_RazorCss_with_Scope" />
+        </ComputeCssScope>
+
+        <ApplyCssScopes RazorComponents="@(_Razor_without_Scope)"
+            ScopedCss="@(_Fictional_RazorCss_with_Scope)"
+            Condition=" '$(_VersionOfApplyCssScopesTask)' == '1' ">
+            <Output TaskParameter="RazorComponentsWithScopes" ItemName="_Razor_with_Scope" />
+            <!--<Output TaskParameter="RazorGenerateWithScopes" ItemName="_RazorGenerateWithScopes" />-->
+        </ApplyCssScopes>
+        <ApplyCssScopes RazorComponents="@(_Razor_without_Scope)"
+            ScopedCss="@(_Fictional_RazorCss_with_Scope)"
+            RazorGenerate=""
+            Condition=" '$(_VersionOfApplyCssScopesTask)' != '1' ">
+            <Output TaskParameter="RazorComponentsWithScopes" ItemName="_Razor_with_Scope" />
+            <!--<Output TaskParameter="RazorGenerateWithScopes" ItemName="_RazorGenerateWithScopes" />-->
+        </ApplyCssScopes>
+
+        <ItemGroup>
+            <RazorComponent Remove="@(_Razor_with_Scope)" />
+            <RazorComponent Include="@(_Razor_with_Scope)" />
+        </ItemGroup>
+
+        <!--
+        GENERATE THE RAZOR SOURCE MAP FILES BASED ON THE CSS SCOPE IDS. (THEY ARE .txt FILES START WITH
+        "b-...")
+        -->
+        <MakeDir Directories="$(_RazorSourceMapFilesDir)" />
+        <WriteLinesToFile WriteOnlyWhenDifferent="true" Overwrite="true"
+            File="$(_RazorSourceMapFilesDir)%(RazorComponent.CssScope).txt"
+            Lines="$(ProjectName)|%(RazorComponent.Identity)|%(RazorComponent.FullPath)"
+            Condition=" '%(RazorComponent.CssScope)' != '' " />
+
+        <!--
+        GENERATE THE OTHER RAZOR SOURCE MAP FILES BASED ON THE FULL PATH OF RAZOR COMPONENTS. (THEY ARE
+        .txt FILES STARTS WITH "frsf-...")
+        -->
+        <_FRSF_ComputePathHash RazorComponents="@(RazorComponent)">
+            <Output TaskParameter="RazorComponentsWithPathHash"
+                ItemName="_FRSF_RazorComponentWithPathHash" />
+        </_FRSF_ComputePathHash>
+
+        <WriteLinesToFile WriteOnlyWhenDifferent="true"
+            Overwrite="true"
+            File="$(_RazorSourceMapFilesDir)%(_FRSF_RazorComponentWithPathHash.PathHash).txt"
+            Lines="$(ProjectName)|%(_FRSF_RazorComponentWithPathHash.Identity)|%(_FRSF_RazorComponentWithPathHash.FullPath)"
+            Condition=" '%(_FRSF_RazorComponentWithPathHash.PathHash)' != '' " />
+        <ItemGroup>
+            <_FRSF_RazorComponentWithPathHash Remove="@(_FRSF_RazorComponentWithPathHash)" />
+        </ItemGroup>
 
 
-    <!--
-    INCLUDE ALL THE RAZOR SOURCE MAP FILES IN THE STATIC WEB ASSET AND ITS ENDPOINTS.
-    -->
-    <ItemGroup>
-      <_RazorSourceMapFiles Include="$(_RazorSourceMapFilesDir)*.txt" />
-    </ItemGroup>
+        <!--
+        INCLUDE ALL THE RAZOR SOURCE MAP FILES IN THE STATIC WEB ASSET AND ITS ENDPOINTS.
+        -->
+        <ItemGroup>
+            <_RazorSourceMapFiles Include="$(_RazorSourceMapFilesDir)*.txt" />
+        </ItemGroup>
 
-    <_FRSF_ComputeFingerprint Items="@(_RazorSourceMapFiles)">
-      <Output TaskParameter="FingerprintedItems" ItemName="_FingerprintedRazorSourceMapFiles" />
-      <Output TaskParameter="EndpointItems" ItemName="_RazorSourceMapFileEndpoints" />
-    </_FRSF_ComputeFingerprint>
+        <_FRSF_ComputeFingerprint Items="@(_RazorSourceMapFiles)">
+            <Output TaskParameter="FingerprintedItems" ItemName="_FingerprintedRazorSourceMapFiles" />
+            <Output TaskParameter="EndpointItems" ItemName="_RazorSourceMapFileEndpoints" />
+        </_FRSF_ComputeFingerprint>
 
-    <ItemGroup>
-      <StaticWebAsset Include="@(_FingerprintedRazorSourceMapFiles)">
-        <SourceType>$(_RazorSourceMapFilesStaticWebAssetsSourceType)</SourceType>
-        <SourceId>$(PackageId)</SourceId>
-        <ContentRoot>$(_RazorSourceMapFilesDir)</ContentRoot>
-        <BasePath>/</BasePath>
-        <RelativePath>_content/FindRazorSourceFile/RazorSourceMapFiles/%(FileName)%(Extension)</RelativePath>
-        <CopyToPublishDirectory>Never</CopyToPublishDirectory>
-        <OriginalItemSpec>%(FullPath)</OriginalItemSpec>
-        <AssetKind>All</AssetKind>
-        <AssetMode>All</AssetMode>
-        <AssetRole>Primary</AssetRole>
-        <AssetTraitName>RazorSourceMapFiles</AssetTraitName>
-      </StaticWebAsset>
+        <ItemGroup>
+            <StaticWebAsset Include="@(_FingerprintedRazorSourceMapFiles)">
+                <Fingerprint>frsf</Fingerprint>
+                <Integrity>frsf</Integrity>
+                <SourceType>$(_RazorSourceMapFilesStaticWebAssetsSourceType)</SourceType>
+                <SourceId>$(PackageId)</SourceId>
+                <ContentRoot>$(_RazorSourceMapFilesDir)</ContentRoot>
+                <BasePath>/</BasePath>
+                <RelativePath>
+                    _content/FindRazorSourceFile/RazorSourceMapFiles/%(FileName)%(Extension)</RelativePath>
+                <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+                <OriginalItemSpec>%(FullPath)</OriginalItemSpec>
+                <AssetKind>All</AssetKind>
+                <AssetMode>All</AssetMode>
+                <AssetRole>Primary</AssetRole>
+                <AssetTraitName>RazorSourceMapFiles</AssetTraitName>
+            </StaticWebAsset>
 
-      <StaticWebAssetEndpoint Include="@(_RazorSourceMapFileEndpoints)" />
-      <_RazorSourceMapFileEndpoints Remove="@(_RazorSourceMapFileEndpoints)" />
+            <StaticWebAssetEndpoint Include="@(_RazorSourceMapFileEndpoints)" />
+            <_RazorSourceMapFileEndpoints Remove="@(_RazorSourceMapFileEndpoints)" />
 
-    </ItemGroup>
+        </ItemGroup>
 
-  </Target>
+    </Target>
 
-  <Target Name="_CleanRazorSourceMapFiles" AfterTargets="Clean" DependsOnTargets="_DefineFindRazorSourceFileProperties">
-    <RemoveDir Directories="$(_RazorSourceMapFilesDir)" />
-  </Target>
-
-  <Target Name="_RemoveRazorSourceMapFilesFromPackage">
-    <ItemGroup>
-      <StaticWebAsset Remove="@(StaticWebAsset)" Condition=" %(AssetTraitName) == 'RazorSourceMapFiles' " />
-    </ItemGroup>
-  </Target>
+    <Target Name="_CleanRazorSourceMapFiles" AfterTargets="Clean"
+        DependsOnTargets="_DefineFindRazorSourceFileProperties">
+        <RemoveDir Directories="$(_RazorSourceMapFilesDir)"
+            Condition="Exists('$(_RazorSourceMapFilesDir)')" />
+    </Target>
+    <Target Name="_RemoveRazorSourceMapFilesFromPackage">
+        <ItemGroup>
+            <StaticWebAsset Remove="@(StaticWebAsset)"
+                Condition=" %(AssetTraitName) == 'RazorSourceMapFiles' " />
+        </ItemGroup>
+    </Target>
 
 </Project>

@@ -35,7 +35,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.TypeScript.MSBuild" Version="4.5.3">
+    <PackageReference Include="Microsoft.TypeScript.MSBuild" Version="7.0.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -74,21 +74,14 @@
 
   <!-- Source generator project reference (build dependency only; generator is packaged separately) -->
   <ItemGroup>
-    <ProjectReference
-      Include="..\FindRazorSourceFile.Generator\FindRazorSourceFile.Generator.csproj"
-      ReferenceOutputAssembly="false"
-      SetTargetFramework="TargetFramework=netstandard2.0" />
+    <ProjectReference Include="..\FindRazorSourceFile.Generator\FindRazorSourceFile.Generator.csproj" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=netstandard2.0" />
   </ItemGroup>
 
   <!-- Pack the source generator assembly into analyzers/dotnet/cs in the NuGet package.
        Use TargetFramework == '' to match only the outer (cross-targeting) build context,
        which is the context where NuGet pack actually collects files. -->
   <ItemGroup Condition="'$(TargetFramework)' == ''">
-    <None
-      Include="$(MSBuildThisFileDirectory)..\FindRazorSourceFile.Generator\bin\$(Configuration)\netstandard2.0\FindRazorSourceFile.Generator.dll"
-      Pack="true"
-      PackagePath="analyzers/dotnet/cs"
-      Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)..\FindRazorSourceFile.Generator\bin\$(Configuration)\netstandard2.0\FindRazorSourceFile.Generator.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
   </ItemGroup>
 
   <Target Name="PreparePackageReleaseNotesFromFile" BeforeTargets="GenerateNuspec">

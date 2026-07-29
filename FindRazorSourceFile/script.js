@@ -1,16 +1,21 @@
 const options = {
-    openInVSCode: false
+    openInVSCode: false,
 };
-const FindRazorSourceFileClientOptionsKey = 'razorsource:options';
-const NotFound = 'NotFound';
-const none = 'none';
+const FindRazorSourceFileClientOptionsKey = "razorsource:options";
+const NotFound = "NotFound";
+const none = "none";
 const NULL = null;
-const CONTENT_ROOT = './_content/FindRazorSourceFile/';
+const CONTENT_ROOT = "./_content/FindRazorSourceFile/";
 const FINDRAZORSOURCEFILE_UI_TAG = "findrazorsourcefile-ui";
 const doc = document;
 const COMMENT_NODE = Node.COMMENT_NODE;
 const ELEMENT_NODE = Node.ELEMENT_NODE;
-const MaxRect = { top: Number.MAX_SAFE_INTEGER, left: Number.MAX_SAFE_INTEGER, bottom: Number.MIN_SAFE_INTEGER, right: Number.MIN_SAFE_INTEGER };
+const MaxRect = {
+    top: Number.MAX_SAFE_INTEGER,
+    left: Number.MAX_SAFE_INTEGER,
+    bottom: Number.MIN_SAFE_INTEGER,
+    right: Number.MIN_SAFE_INTEGER,
+};
 let _onceInit = false;
 let logicalNodeParentKey = NULL;
 let logicalNodeChildrenKey = NULL;
@@ -25,14 +30,16 @@ let currentMode = 0;
 let configurations = [];
 const isArray = (obj) => Array.isArray(obj);
 const getConfigValue = (configs, key, defaultValue) => {
-    return configs.find(c => c.key === key)?.value ?? defaultValue;
+    return configs.find((c) => c.key === key)?.value ?? defaultValue;
 };
 const toBool = (value) => {
-    if (typeof value === 'boolean')
+    if (typeof value === "boolean")
         return value;
     switch (String(value).toLowerCase()) {
-        case 'true': return true;
-        case 'false': return false;
+        case "true":
+            return true;
+        case "false":
+            return false;
         default:
             console.error(`Cannot convert to boolean: ${value}`);
             return false;
@@ -42,12 +49,14 @@ const combineRects = (rects) => rects.reduce((pre, cur) => ({
     top: Math.min(pre.top, cur.top),
     left: Math.min(pre.left, cur.left),
     bottom: Math.max(pre.bottom, cur.bottom),
-    right: Math.max(pre.right, cur.right)
+    right: Math.max(pre.right, cur.right),
 }), MaxRect);
 const isPointerInRect = (pointer, rect) => {
-    return rect !== null &&
-        rect.left < pointer.clientX && pointer.clientX < rect.right &&
-        rect.top < pointer.clientY && pointer.clientY < rect.bottom;
+    return (rect !== null &&
+        rect.left < pointer.clientX &&
+        pointer.clientX < rect.right &&
+        rect.top < pointer.clientY &&
+        pointer.clientY < rect.bottom);
 };
 const getDepth = (e) => {
     let depth = 0;
@@ -81,7 +90,7 @@ const createElement = (tagName, style, attrib, children) => {
         exposes = { ...exposes, ...childExposes };
         return childElement;
     };
-    children?.forEach(child => {
+    children?.forEach((child) => {
         if (isArray(child)) {
             appendChild(child);
         }
@@ -108,16 +117,16 @@ const init = async () => {
         const [uiRoot] = createElement(FINDRAZORSOURCEFILE_UI_TAG);
         doc.body.appendChild(uiRoot);
     };
-   typeof Blazor != "undefined" &&
-     typeof Blazor.addEventListener == "function" &&
-     Blazor.addEventListener("enhancedload", e);
-
+    if (typeof Blazor !== "undefined" &&
+        typeof Blazor.addEventListener === "function") {
+        Blazor.addEventListener("enhancedload", ensureFindRazorSourceFileUI);
+    }
     ensureFindRazorSourceFileUI();
     addEventListener(doc, { keydown: onKeyDown });
     addEventListener(window, {
         resize: window_onResize,
         scroll: window_onResize,
-        storage: window_onStorage
+        storage: window_onStorage,
     });
     try {
         const res = await fetch(`./FindRazorSourceFileConfig.json?${Date.now()}`);
@@ -150,10 +159,10 @@ const createComponentsMap = async () => {
                 if (endTag === "end" && endHash === beginHash && elements.length > 0) {
                     componentsMap.push({
                         hash: beginHash,
-                        rect: () => combineRects(elements.map(e => e.getBoundingClientRect())),
+                        rect: () => combineRects(elements.map((e) => e.getBoundingClientRect())),
                         depth: Math.min(...elements.map(getDepth)),
                         source: razorSourceName,
-                        elements
+                        elements,
                     });
                     break;
                 }
@@ -170,13 +179,13 @@ const getLogicalNodePropKeys = () => {
         if (commentNode.textContent !== "!")
             continue;
         const symbolProps = Object.getOwnPropertySymbols(commentNode);
-        symbolProps.forEach(prop => {
+        symbolProps.forEach((prop) => {
             const propValue = commentNode[prop];
             if (!propValue)
                 return;
             if (isArray(propValue))
                 logicalNodeChildrenKey = logicalNodeChildrenKey || prop;
-            else if (typeof (propValue.nodeType) !== undefined)
+            else if (typeof propValue.nodeType !== undefined)
                 logicalNodeParentKey = logicalNodeParentKey || prop;
         });
         if (logicalNodeParentKey && logicalNodeChildrenKey)
@@ -194,28 +203,32 @@ class UIRoot extends HTMLElement {
         updateUIeffects(1);
         addEventListener(ui.overlay, {
             mousemove: overlay_onMouseMove,
-            click: overlay_onClick
+            click: overlay_onClick,
         });
         addEventListener(ui.sourceNameTip, {
             mousemove: stopPropagation,
-            click: sourceNameTip_onClick
+            click: sourceNameTip_onClick,
         });
         addEventListener(ui.settingsButton, { click: settingsButton_onClick });
         addEventListener(ui.settingsForm, { click: stopPropagation });
-        addEventListener(ui.settingsOpenInVSCode, { click: settingsOpenInVSCode_onClick });
+        addEventListener(ui.settingsOpenInVSCode, {
+            click: settingsOpenInVSCode_onClick,
+        });
         loadOptionsFromLocalStorage();
         this.dispose = () => {
             removeEventListener(ui.overlay, {
                 mousemove: overlay_onMouseMove,
-                click: overlay_onClick
+                click: overlay_onClick,
             });
             removeEventListener(ui.sourceNameTip, {
                 mousemove: stopPropagation,
-                click: sourceNameTip_onClick
+                click: sourceNameTip_onClick,
             });
             removeEventListener(ui.settingsButton, { click: settingsButton_onClick });
             removeEventListener(ui.settingsForm, { click: stopPropagation });
-            removeEventListener(ui.settingsOpenInVSCode, { click: settingsOpenInVSCode_onClick });
+            removeEventListener(ui.settingsOpenInVSCode, {
+                click: settingsOpenInVSCode_onClick,
+            });
         };
     }
     disconnectedCallback() {
@@ -223,62 +236,124 @@ class UIRoot extends HTMLElement {
     }
 }
 const createUIElements = (parent) => {
-    const [overlay, exposes] = createElement('div', {
-        position: 'fixed', top: '0', left: '0', bottom: '0', right: '0', zIndex: '9999',
-        backgroundColor: 'transparent', borderStyle: 'solid', display: none, opacity: '0',
-        transition: 'border 0.2s ease-out, box-shadow 0.2s ease-out, opacity 0.2s linear'
+    const [overlay, exposes] = createElement("div", {
+        position: "fixed",
+        top: "0",
+        left: "0",
+        bottom: "0",
+        right: "0",
+        zIndex: "9999",
+        backgroundColor: "transparent",
+        borderStyle: "solid",
+        display: none,
+        opacity: "0",
+        transition: "border 0.2s ease-out, box-shadow 0.2s ease-out, opacity 0.2s linear",
     }, NULL, [
         {
-            sourceNameTip: createElement('div', {
-                position: 'absolute', top: '4px', left: '4px', padding: '2px 6px',
-                fontFamily: 'sans-serif', fontSize: '12px', color: '#111',
-                backgroundColor: '#ffc107', boxShadow: '2px 2px 4px 0px rgb(0, 0, 0, 0.5)',
-                whiteSpace: 'nowrap', display: none, transition: 'opacity 0.2s ease-out', pointerEvents: none
+            sourceNameTip: createElement("div", {
+                position: "absolute",
+                top: "4px",
+                left: "4px",
+                padding: "2px 6px",
+                fontFamily: "sans-serif",
+                fontSize: "12px",
+                color: "#111",
+                backgroundColor: "#ffc107",
+                boxShadow: "2px 2px 4px 0px rgb(0, 0, 0, 0.5)",
+                whiteSpace: "nowrap",
+                display: none,
+                transition: "opacity 0.2s ease-out",
+                pointerEvents: none,
             }, NULL, [
-                createElement('img', { verticalAlign: 'middle', width: '16px' }, { src: CONTENT_ROOT + 'ASPWebApplication_16x.svg' }),
-                { sourceNameTipProjectName: createElement('span', { verticalAlign: 'middle', marginLeft: '4px' }) },
-                createElement('span', { verticalAlign: 'middle' }, { textContent: ' | ' }),
-                createElement('img', { verticalAlign: 'middle', width: '16px' }, { src: CONTENT_ROOT + 'ASPRazorFile_16x.svg' }),
-                { sourceNameTipItemName: createElement('span', { verticalAlign: 'middle', marginLeft: '4px' }) }
+                createElement("img", { verticalAlign: "middle", width: "16px" }, { src: CONTENT_ROOT + "ASPWebApplication_16x.svg" }),
+                {
+                    sourceNameTipProjectName: createElement("span", {
+                        verticalAlign: "middle",
+                        marginLeft: "4px",
+                    }),
+                },
+                createElement("span", { verticalAlign: "middle" }, { textContent: " | " }),
+                createElement("img", { verticalAlign: "middle", width: "16px" }, { src: CONTENT_ROOT + "ASPRazorFile_16x.svg" }),
+                {
+                    sourceNameTipItemName: createElement("span", {
+                        verticalAlign: "middle",
+                        marginLeft: "4px",
+                    }),
+                },
             ]),
         },
         {
-            settingsButton: createElement('button', {
-                position: 'fixed', bottom: '8px', right: '8px', height: '32px', paddingLeft: '30px',
-                fontFamily: 'sans-serif', fontSize: '12px', color: '#111',
-                border: none, backgroundColor: '#fff', borderRadius: '64px', outline: none,
+            settingsButton: createElement("button", {
+                position: "fixed",
+                bottom: "8px",
+                right: "8px",
+                height: "32px",
+                paddingLeft: "30px",
+                fontFamily: "sans-serif",
+                fontSize: "12px",
+                color: "#111",
+                border: none,
+                backgroundColor: "#fff",
+                borderRadius: "64px",
+                outline: none,
                 backgroundImage: `url('${CONTENT_ROOT}settings_black_24dp.svg')`,
-                backgroundRepeat: 'no-repeat', backgroundPosition: '5px center'
-            }, { title: 'Find Razor Source File - Settings', textContent: 'Find Razor Source File' })
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "5px center",
+            }, {
+                title: "Find Razor Source File - Settings",
+                textContent: "Find Razor Source File",
+            }),
         },
         {
-            settingsForm: createElement('div', {
-                position: 'fixed', bottom: '0', right: '8px', padding: '8px 12px',
-                border: '#ccc', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '2px 2px 4px 0px rgb(0, 0, 0, 0.5)',
-                opacity: '0', transition: 'ease-out all 0.2s', pointerEvents: none
+            settingsForm: createElement("div", {
+                position: "fixed",
+                bottom: "0",
+                right: "8px",
+                padding: "8px 12px",
+                border: "#ccc",
+                backgroundColor: "#fff",
+                borderRadius: "8px",
+                boxShadow: "2px 2px 4px 0px rgb(0, 0, 0, 0.5)",
+                opacity: "0",
+                transition: "ease-out all 0.2s",
+                pointerEvents: none,
             }, NULL, [
-                createElement('label', { margin: '0', padding: '0', fontFamily: 'sans-serif', fontSize: '12px', color: '#111' }, NULL, [
-                    { settingsOpenInVSCode: createElement('input', { margin: '0 8px 0 0', padding: '0', verticalAlign: 'middle' }, { type: 'checkbox' }) },
-                    createElement('span', { verticalAlign: 'middle' }, { textContent: 'Open the .razor file of the clicked component in ' }),
-                    createElement('img', { verticalAlign: 'middle', width: '18px' }, { src: CONTENT_ROOT + 'vscode.svg' }),
-                    createElement('span', { verticalAlign: 'middle' }, { textContent: ' VSCode' }),
-                ])
-            ])
-        }
+                createElement("label", {
+                    margin: "0",
+                    padding: "0",
+                    fontFamily: "sans-serif",
+                    fontSize: "12px",
+                    color: "#111",
+                }, NULL, [
+                    {
+                        settingsOpenInVSCode: createElement("input", {
+                            margin: "0 8px 0 0",
+                            padding: "0",
+                            verticalAlign: "middle",
+                        }, { type: "checkbox" }),
+                    },
+                    createElement("span", { verticalAlign: "middle" }, {
+                        textContent: "Open the .razor file of the clicked component in ",
+                    }),
+                    createElement("img", { verticalAlign: "middle", width: "18px" }, { src: CONTENT_ROOT + "vscode.svg" }),
+                    createElement("span", { verticalAlign: "middle" }, { textContent: " VSCode" }),
+                ]),
+            ]),
+        },
     ]);
     parent.appendChild(overlay);
     return { ...{ overlay }, ...exposes };
 };
 const updateUIeffects = (mode) => {
     const overlayOpacity = mode === 1 ? 0.3 : 0.5;
-    const sourcetipOpacity = mode === 1 ? '0.8' : '1.0';
+    const sourcetipOpacity = mode === 1 ? "0.8" : "1.0";
     applyStyle(uiElements.overlay, {
         borderColor: `rgba(0, 0, 0, ${overlayOpacity})`,
-        boxShadow: `inset rgb(0, 0, 0, ${overlayOpacity}) 0px 0px 6px 4px`
+        boxShadow: `inset rgb(0, 0, 0, ${overlayOpacity}) 0px 0px 6px 4px`,
     });
     applyStyle(uiElements.sourceNameTip, {
         opacity: sourcetipOpacity,
-        pointerEvents: mode === 2 ? 'auto' : 'none'
+        pointerEvents: mode === 2 ? "auto" : "none",
     });
 };
 const setSourceNameTip = (projectName, itemName) => {
@@ -287,47 +362,58 @@ const setSourceNameTip = (projectName, itemName) => {
 };
 const onKeyDown = async (ev) => {
     const pressedHotkey = isPressedHotkey(configurations, ev);
-    const pressedEscape = (ev.code === 'Escape' && !ev.ctrlKey && !ev.shiftKey && !ev.metaKey && !ev.altKey);
+    const pressedEscape = ev.code === "Escape" &&
+        !ev.ctrlKey &&
+        !ev.shiftKey &&
+        !ev.metaKey &&
+        !ev.altKey;
     if (currentMode === 0 && pressedHotkey) {
         stopPropagation(ev);
         ev.preventDefault();
         currentComponentsMap = await createComponentsMap();
         currentMode = 1;
         applyStyle(uiElements.overlay, {
-            borderWidth: '50vh 50vw',
-            display: 'block'
+            borderWidth: "50vh 50vw",
+            display: "block",
         });
         hideSettingsForm();
-        setTimeout(() => { if (currentMode === 1 || currentMode === 2)
-            uiElements.overlay.style.opacity = '1'; }, 1);
+        setTimeout(() => {
+            if (currentMode === 1 || currentMode === 2)
+                uiElements.overlay.style.opacity = "1";
+        }, 1);
         setSourceNameTip("", "");
         currentScope = NULL;
         currentScopeElements = [];
         currentScopeRect = NULL;
     }
-    else if ((currentMode === 1 || currentMode === 2) && (pressedEscape || pressedHotkey)) {
+    else if ((currentMode === 1 || currentMode === 2) &&
+        (pressedEscape || pressedHotkey)) {
         stopPropagation(ev);
         ev.preventDefault();
-        currentMode = pressedHotkey ? 0 : (currentMode === 2 ? 1 : 0);
+        currentMode = pressedHotkey
+            ? 0 : currentMode === 2
+            ? 1 : 0;
         updateUIeffects(1);
         uiElements.sourceNameTip.style.display = none;
-        uiElements.overlay.style.borderWidth = '50vh 50vw';
+        uiElements.overlay.style.borderWidth = "50vh 50vw";
         hideSettingsForm();
         if (currentMode === 0) {
             currentComponentsMap = [];
-            uiElements.overlay.style.opacity = '0';
-            setTimeout(() => { if (currentMode === 0)
-                uiElements.overlay.style.display = none; }, 200);
+            uiElements.overlay.style.opacity = "0";
+            setTimeout(() => {
+                if (currentMode === 0)
+                    uiElements.overlay.style.display = none;
+            }, 200);
         }
     }
 };
 const isPressedHotkey = (configs, ev) => {
-    const getHotleyConfigValue = (key, defaultValue) => getConfigValue(configs, 'hotkey:' + key, defaultValue);
-    return ev.code === getHotleyConfigValue('code', 'KeyF') &&
-        ev.ctrlKey === toBool(getHotleyConfigValue('ctrlKey', 'true')) &&
-        ev.shiftKey === toBool(getHotleyConfigValue('shiftKey', 'true')) &&
-        ev.altKey === toBool(getHotleyConfigValue('altKey', 'false')) &&
-        ev.metaKey === toBool(getHotleyConfigValue('metaKey', 'false'));
+    const getHotleyConfigValue = (key, defaultValue) => getConfigValue(configs, "hotkey:" + key, defaultValue);
+    return (ev.code === getHotleyConfigValue("code", "KeyF") &&
+        ev.ctrlKey === toBool(getHotleyConfigValue("ctrlKey", "true")) &&
+        ev.shiftKey === toBool(getHotleyConfigValue("shiftKey", "true")) &&
+        ev.altKey === toBool(getHotleyConfigValue("altKey", "false")) &&
+        ev.metaKey === toBool(getHotleyConfigValue("metaKey", "false")));
 };
 const overlay_onMouseMove = async (ev) => {
     if (currentMode !== 1)
@@ -337,10 +423,15 @@ const overlay_onMouseMove = async (ev) => {
 const overlay_onClick = (ev) => {
     hideSettingsForm();
     if (currentMode === 1) {
-        if (currentScope && lastDetectedRazorSource && lastDetectedRazorSource !== NotFound) {
+        if (currentScope &&
+            lastDetectedRazorSource &&
+            lastDetectedRazorSource !== NotFound) {
             currentMode = 2;
             updateUIeffects(2);
-            const event = new Event("razorsource:lockin", { bubbles: false, cancelable: false });
+            const event = new Event("razorsource:lockin", {
+                bubbles: false,
+                cancelable: false,
+            });
             event.razorSourceName = lastDetectedRazorSource;
             doc.dispatchEvent(event);
             if (options.openInVSCode) {
@@ -367,9 +458,17 @@ const settingsButton_onClick = (ev) => {
     else
         hideSettingsForm();
 };
-const showSettingsForm = () => Object.assign(uiElements.settingsForm.style, { opacity: '1', bottom: '48px', pointerEvents: 'unset' });
-const hideSettingsForm = () => Object.assign(uiElements.settingsForm.style, { opacity: '0', bottom: '0', pointerEvents: none });
-const isHiddenSettingsForm = () => uiElements.settingsForm.style.opacity === '0';
+const showSettingsForm = () => Object.assign(uiElements.settingsForm.style, {
+    opacity: "1",
+    bottom: "48px",
+    pointerEvents: "unset",
+});
+const hideSettingsForm = () => Object.assign(uiElements.settingsForm.style, {
+    opacity: "0",
+    bottom: "0",
+    pointerEvents: none,
+});
+const isHiddenSettingsForm = () => uiElements.settingsForm.style.opacity === "0";
 const settingsOpenInVSCode_onClick = (ev) => {
     stopPropagation(ev);
     options.openInVSCode = uiElements.settingsOpenInVSCode.checked;
@@ -384,10 +483,10 @@ const detectTargetAndDisplayIt = async (ev) => {
 };
 const detectScope = async (ev) => {
     const sourceNameTipVisibility = uiElements.sourceNameTip.style.visibility;
-    uiElements.sourceNameTip.style.visibility = 'hidden';
-    uiElements.overlay.style.visibility = 'hidden';
+    uiElements.sourceNameTip.style.visibility = "hidden";
+    uiElements.overlay.style.visibility = "hidden";
     const hovered = doc.elementFromPoint(ev.clientX, ev.clientY);
-    uiElements.overlay.style.visibility = 'visible';
+    uiElements.overlay.style.visibility = "visible";
     uiElements.sourceNameTip.style.visibility = sourceNameTipVisibility;
     let scope = NULL;
     let scopeRect = NULL;
@@ -401,26 +500,34 @@ const detectScope = async (ev) => {
                 topElement = element;
         }
         else {
-            if (scope === await getScope(element))
+            if (scope === (await getScope(element)))
                 topElement = element;
         }
     }
     if (scope && topElement) {
         scopeElements = [topElement];
-        scopeRect = (currentScope === scope ? currentScopeRect : NULL) || getScopeRect(topElement);
+        scopeRect =
+            (currentScope === scope ? currentScopeRect : NULL) ||
+                getScopeRect(topElement);
         scopeSource = await getRazorSourceName(scope);
     }
     const hoveredComponentMap = currentComponentsMap
-        .filter(c => isPointerInRect(ev, c.rect()))
-        .sort((a, b) => b.depth !== a.depth ? b.depth - a.depth : a.elements.length - b.elements.length)[0];
+        .filter((c) => isPointerInRect(ev, c.rect()))
+        .sort((a, b) => b.depth !== a.depth
+        ? b.depth - a.depth
+        : a.elements.length - b.elements.length)[0];
     if (hoveredComponentMap) {
         let shouldUseComponentMap = false;
         if (!scope) {
             shouldUseComponentMap = true;
         }
         else if (topElement && scopeSource) {
-            if (scopeSource !== NotFound && scopeSource.itemName === hoveredComponentMap.source.itemName) {
-                scopeRect = combineRects([scopeRect || MaxRect, hoveredComponentMap.rect()]);
+            if (scopeSource !== NotFound &&
+                scopeSource.itemName === hoveredComponentMap.source.itemName) {
+                scopeRect = combineRects([
+                    scopeRect || MaxRect,
+                    hoveredComponentMap.rect(),
+                ]);
                 scopeElements = [topElement, ...hoveredComponentMap.elements];
             }
             else {
@@ -438,7 +545,11 @@ const detectScope = async (ev) => {
     }
     if (!scope || !scopeRect) {
         if (isPointerInRect(ev, currentScopeRect)) {
-            return { scope: currentScope, scopeRect: currentScopeRect, scopeHasChanged: false };
+            return {
+                scope: currentScope,
+                scopeRect: currentScopeRect,
+                scopeHasChanged: false,
+            };
         }
     }
     else if (currentScope && currentScope !== scope && currentScopeRect) {
@@ -447,7 +558,11 @@ const detectScope = async (ev) => {
                 scopeRect.right > currentScopeRect.right &&
                 scopeRect.top < currentScopeRect.top &&
                 scopeRect.bottom > currentScopeRect.bottom) {
-                return { scope: currentScope, scopeRect: currentScopeRect, scopeHasChanged: false };
+                return {
+                    scope: currentScope,
+                    scopeRect: currentScopeRect,
+                    scopeHasChanged: false,
+                };
             }
         }
     }
@@ -457,29 +572,41 @@ const detectScope = async (ev) => {
         currentScopeElements = scopeElements;
         currentScopeRect = scopeRect;
     }
-    return { scope: currentScope, scopeRect: currentScopeRect, scopeHasChanged, source: scopeSource };
+    return {
+        scope: currentScope,
+        scopeRect: currentScopeRect,
+        scopeHasChanged,
+        source: scopeSource,
+    };
 };
 const getScope = async (element) => {
-    const scope = element.getAttributeNames().filter(name => name.startsWith('b-'))[0] || NULL;
+    const scope = element.getAttributeNames().filter((name) => name.startsWith("b-"))[0] ||
+        NULL;
     const reazorSourceName = await getRazorSourceName(scope);
     if (!reazorSourceName || reazorSourceName === NotFound)
         return NULL;
     return scope;
 };
 const getRazorSourceName = async (arg) => {
-    if (arg && typeof arg !== 'string' && arg.source)
+    if (arg && typeof arg !== "string" && arg.source)
         return arg.source;
-    const scope = typeof arg === 'string' ? arg : arg?.scope || NULL;
+    const scope = typeof arg === "string" ? arg : arg?.scope || NULL;
     if (!scope)
         return NULL;
     let razorSourceName = razorSourceMap[scope] || NULL;
     if (razorSourceName)
         return razorSourceName;
-    const res = await fetch(`${CONTENT_ROOT}RazorSourceMapFiles/${scope}.txt`);
-    if (res.ok) {
+    const res = await fetch(`./RazorSourceMapFiles/${scope}.txt`)
+        .then((r) => r.ok ? r : fetch(`${CONTENT_ROOT}RazorSourceMapFiles/${scope}.txt`))
+        .catch((e) => console.error(e));
+    if (res && res.ok) {
         const text = await res.text();
-        const p = text.replace(/[\r\n]*$/ig, '').split('|');
-        const razorSourceName = { projectName: p[0], itemName: p[1], fullPath: p[2] };
+        const p = text.replace(/[\r\n]*$/gi, "").split("|");
+        const razorSourceName = {
+            projectName: p[0],
+            itemName: p[1],
+            fullPath: p[2],
+        };
         razorSourceMap[scope] = razorSourceName;
         return razorSourceName;
     }
@@ -491,21 +618,21 @@ const getRazorSourceName = async (arg) => {
 const displayScopeMask = (scopeRect, razorSourceName) => {
     if (!scopeRect || !razorSourceName || razorSourceName === NotFound) {
         uiElements.sourceNameTip.style.display = none;
-        uiElements.overlay.style.borderWidth = '50vh 50vw';
+        uiElements.overlay.style.borderWidth = "50vh 50vw";
         return;
     }
     const overlayRect = uiElements.overlay.getBoundingClientRect();
     const bottomWidth = overlayRect.height - scopeRect.bottom;
     const rightWidth = overlayRect.width - scopeRect.right;
     applyStyle(uiElements.overlay, {
-        borderStyle: 'solid',
-        borderTopWidth: scopeRect.top > 0 ? scopeRect.top + 'px' : 0,
-        borderLeftWidth: scopeRect.left > 0 ? scopeRect.left + 'px' : 0,
-        borderBottomWidth: bottomWidth > 0 ? bottomWidth + 'px' : 0,
-        borderRightWidth: rightWidth > 0 ? rightWidth + 'px' : 0
+        borderStyle: "solid",
+        borderTopWidth: scopeRect.top > 0 ? scopeRect.top + "px" : 0,
+        borderLeftWidth: scopeRect.left > 0 ? scopeRect.left + "px" : 0,
+        borderBottomWidth: bottomWidth > 0 ? bottomWidth + "px" : 0,
+        borderRightWidth: rightWidth > 0 ? rightWidth + "px" : 0,
     });
     setSourceNameTip(razorSourceName.projectName, razorSourceName.itemName);
-    uiElements.sourceNameTip.style.display = 'block';
+    uiElements.sourceNameTip.style.display = "block";
 };
 const getScopeRect = (element) => {
     const getLogicalNodes = (element) => {
@@ -531,8 +658,11 @@ const getScopeRect = (element) => {
         }
         return [element];
     };
-    const getRect = (children) => combineRects(children.map(e => (e.nodeType === ELEMENT_NODE) ? e.getBoundingClientRect() :
-        (e.nodeType === COMMENT_NODE) ? getRect(getLogicalNodes(e)[1]) : MaxRect));
+    const getRect = (children) => combineRects(children.map((e) => e.nodeType === ELEMENT_NODE
+        ? e.getBoundingClientRect()
+        : e.nodeType === COMMENT_NODE
+            ? getRect(getLogicalNodes(e)[1])
+            : MaxRect));
     return getRect(getChildren(element));
 };
 const window_onResize = (ev) => {
@@ -542,7 +672,7 @@ const window_onResize = (ev) => {
         return;
     if (!lastDetectedRazorSource || lastDetectedRazorSource === NotFound)
         return;
-    currentScopeRect = combineRects(currentScopeElements.map(e => getScopeRect(e)));
+    currentScopeRect = combineRects(currentScopeElements.map((e) => getScopeRect(e)));
     displayScopeMask(currentScopeRect, lastDetectedRazorSource);
 };
 const window_onStorage = (ev) => loadOptionsFromLocalStorage();
@@ -552,7 +682,8 @@ const saveOptionsFromLocalStorage = () => {
 };
 const loadOptionsFromLocalStorage = () => {
     const optionString = localStorage.getItem(FindRazorSourceFileClientOptionsKey);
-    Object.assign(options, JSON.parse(optionString || '{}'));
+    Object.assign(options, JSON.parse(optionString || "{}"));
     uiElements.settingsOpenInVSCode.checked = options.openInVSCode;
 };
-export { afterStarted, afterWebStarted, init, isPressedHotkey, getConfigValue, toBool };
+export { afterStarted, afterWebStarted, init, isPressedHotkey, getConfigValue, toBool, };
+//# sourceMappingURL=script.js.map
