@@ -1,7 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
-  <PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <TargetFrameworks>net10.0</TargetFrameworks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' != 'Debug'">
     <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+  </PropertyGroup>
+
+  <PropertyGroup>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <WarningsAsErrors>$(WarningsAsErrors);nullable</WarningsAsErrors>
@@ -50,7 +57,7 @@
   </Target>
 
   <!-- MINIFY SCRIPTS  -->
-  <Target Name="MinifyScript" BeforeTargets="BeforeBuild" Inputs="script.js" Outputs="wwwroot/FindRazorSourceFile.lib.module.js">
+  <Target Name="MinifyScript" BeforeTargets="BeforeBuild" Inputs="script.js" Outputs="wwwroot/FindRazorSourceFile.lib.module.js" Condition="'$(Configuration)' != 'Debug'">
     <Exec Command="npx esbuild@0.25.5 ./script.js --outfile=wwwroot/FindRazorSourceFile.lib.module.js --minify --log-level=silent" WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>
 

@@ -176,6 +176,8 @@
     <Target
         Name="_GenerateFindRazorSourceConfigFile"
         BeforeTargets="GenerateStaticWebAssetsManifest"
+        Inputs="$(MSBuildProjectFullPath)"
+        Outputs="$(_FRSF_ConfigPath)"
         Condition=" '$(EnableFindRazorSourceFile)' == 'true' AND '@(FindRazorSourceFileConfig)' != '' ">
         <PropertyGroup>
             <_FRSF_ConfigPath Condition=" '$(_FRSF_ConfigPath)' == '' ">
@@ -242,10 +244,12 @@
     GENERATE THE RAZOR SOURCE MAP FILES, BASED ON THE CSS SCOPE IDS AND THE FULL PATH OF RAZOR
     COMPONENTS.
     -->
-    <Target Name="_GenerateRazorSourceMapFiles"
-        BeforeTargets="AssignRazorComponentTargetPaths;AssignRazorGenerateTargetPaths"
-        DependsOnTargets="ResolveScopedCssOutputs;_DefineFindRazorSourceFileProperties"
-        Condition=" '$(EnableFindRazorSourceFile)' == 'true' ">
+  <Target Name="_GenerateRazorSourceMapFiles"
+    BeforeTargets="AssignRazorComponentTargetPaths;AssignRazorGenerateTargetPaths"
+    DependsOnTargets="ResolveScopedCssOutputs;_DefineFindRazorSourceFileProperties"
+    Inputs="@(RazorComponent)"
+    Outputs="$(_RazorSourceMapFilesDir).stamp"
+    Condition=" '$(EnableFindRazorSourceFile)' == 'true' ">
 
         <ItemGroup>
             <_Razor_without_Scope Include="%(RazorComponent.Identity)"
@@ -304,8 +308,8 @@
         <ItemGroup>
             <_FRSF_RazorComponentWithPathHash Remove="@(_FRSF_RazorComponentWithPathHash)" />
         </ItemGroup>
-
-
+        
+    <Touch Files="$(_RazorSourceMapFilesDir).stamp" AlwaysCreate="true" />
     </Target>
 
 <Target Name="_CleanRazorSourceMapFiles" AfterTargets="Clean" DependsOnTargets="_DefineFindRazorSourceFileProperties">
